@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Тулпар: Авто-Сканер</title>
+    
+    <script src="https://unpkg.com/html5-qrcode"></script>
+
+    <style>
+        * { box-sizing: border-box; }
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            background-color: #000; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            color: #fff; overflow: hidden;
+        }
+
+        .app-container { display: flex; flex-direction: column; align-items: center; width: 100%; height: 100%; }
+
+        /* ОКНО 1: ПОЛНОЭКРАННЫЙ СКАНЕР */
+        #scanner-window {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 1; display: block; overflow: hidden;
+        }
+        #reader { width: 100% !important; height: 100% !important; border: none !important; }
+        #reader video { width: 100% !important; height: 100% !important; object-fit: cover !important; }
+
+        /* Очистка интерфейса библиотеки html5-qrcode */
+        #reader__scan_region, #reader__scan_region div, #reader__scan_region canvas,
+        #reader__dashboard, #reader button { display: none !important; opacity: 0 !important; }
+
+        /* РОЗОВЫЙ ПРИЦЕЛ */
+        .camera-aim-container {
+            position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%);
+            width: 260px; height: 260px; pointer-events: none; z-index: 999;
+        }
+        .purple-corner { position: absolute; width: 35px; height: 35px; border-color: #e91e63; border-style: solid; border-width: 0; }
+        .top-left     { top: 0; left: 0; border-top-width: 4px; border-left-width: 4px; border-top-left-radius: 24px; }
+        .top-right    { top: 0; right: 0; border-top-width: 4px; border-right-width: 4px; border-top-right-radius: 24px; }
+        .bottom-left  { bottom: 0; left: 0; border-bottom-width: 4px; border-left-width: 4px; border-bottom-left-radius: 24px; }
+        .bottom-right { bottom: 0; right: 0; border-bottom-width: 4px; border-right-width: 4px; border-bottom-right-radius: 24px; }
+
+        /* ПАНЕЛЬ С ФОТО */
+        .bottom-photo-panel {
+            position: absolute; bottom: 0; left: 0; width: 100%; z-index: 6; line-height: 0;
+        }
+        .user-full-width-photo { width: 100%; height: auto; display: block; object-fit: contain; }
+
+        /* ОКНО ИНТЕРФЕЙСА ТУЛПАР */
+        .wrapper { width: 100%; max-width: 400px; display: none; flex-direction: column; position: relative; z-index: 10; }
+        .block { width: 100%; position: relative; line-height: 0; }
+        img { width: 100%; height: auto; display: block; }
+
+        #entry-time { position: absolute; width: 100%; text-align: center; top: 65%; left: 0; color: #fff; font-size: 13px; line-height: normal; }
+        #tulpar-digits { position: absolute; left: 22%; top: 76%; color: #fff; font-size: 13px; line-height: normal; font-weight: 400; }
+
+        .actions-row { display: flex; background: #000; padding: 5px 10px; justify-content: space-between; }
+        .action-btn { width: 31%; cursor: pointer; }
+        
+        /* СТРАНИЦА ЧЕКА */
+        #chek-overlay { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #000; z-index: 100; }
+        #chek-overlay img { height: 100%; width: 100%; object-fit: contain; }
+        .overlay-text { position: absolute; color: #333; line-height: normal; }
+        #chek-time { top: 36.6%; left: 10%; font-size: 10px; color: #9a9a9a; }
+        #chek-digits { top: 55.3%; left: 10%; font-size: 10px; color: #000; font-weight: bold; }
+        .back-btn { position: absolute; top: 30px; left: 20px; width: 40px; height: 40px; cursor: pointer; z-index: 110; }
+
+        /* МОДАЛКА РУЧНОГО ВВОДА (СКРЫТА И НЕ ИСПОЛЬЗУЕТСЯ) */
+        #prompt-overlay { display: none; }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+
+    <div id="scanner-window">
+        <div id="reader"></div>
+        
+        <div class="camera-aim-container">
+            <div class="purple-corner top-left"></div>
+            <div class="purple-corner top-right"></div>
+            <div class="purple-corner bottom-left"></div>
+            <div class="purple-corner bottom-right"></div>
+        </div>
+        
+        <div class="bottom-photo-panel">
+            <img src="foto.jpg" alt="Нижняя панель" class="user-full-width-photo" onerror="this.style.display='none';">
+        </div>
+    </div>
+
+    <div class="wrapper" id="main-interface">
+        <div class="block"><img src="vverh.jpg"><div id="entry-time">...</div></div>
+        <div class="actions-row">
+            <div class="action-btn"><img src="izbran.jpg"></div>
+            <div class="action-btn"><img src="povtor.jpg"></div>
+            <div class="action-btn" onclick="showChek()"><img src="chek.jpg"></div>
+        </div>
+        <div class="block"><img src="oplata.jpg"><div id="tulpar-digits">...</div></div>
+        <div class="block"><img src="reklama.jpg"></div>
+    </div>
+
+    <div id="chek-overlay">
+        <div class="back-btn" onclick="hideChek()"></div>
+        <img src="site2.jpg">
+        <div id="chek-time" class="overlay-text">...</div>
+        <div id="chek-digits" class="overlay-text">...</div>
+    </div>
+
+</div>
+
+<script>
+    let html5QrCode;
+    let currentTimeStr = "";
+    let currentDigits = "1515";
+
+    window.onload = function() {
+        // Настройка времени
+        const now = new Date();
+        const options = { 
+            day: '2-digit', month: '2-digit', year: 'numeric', 
+            hour: '2-digit', minute: '2-digit', second: '2-digit', 
+            timeZone: 'Asia/Bishkek' 
+        };
+        currentTimeStr = now.toLocaleString('ru-RU', options);
+        document.getElementById('entry-time').innerText = currentTimeStr.slice(0, -3);
+        
+        // Стартует только камера
+        startCamera();
+    };
+
+    function extractBusCode(rawUrl) {
+        if (!rawUrl.includes("qr.tulpar.kg")) return null;
+
+        const parts = rawUrl.split("qr.tulpar.kg");
+        if (parts.length < 2) return null;
+
+        const dataAfterDomain = parts[1];
+        let prefix = "";
+        if (dataAfterDomain.startsWith("1003")) prefix = "1003";
+        else if (dataAfterDomain.startsWith("1004")) prefix = "1004";
+
+        if (!prefix) return null;
+
+        const withoutPrefix = dataAfterDomain.substring(prefix.length);
+        const tailIndex = withoutPrefix.indexOf("1202121");
+        if (tailIndex === -1) return null;
+
+        return withoutPrefix.substring(0, tailIndex);
+    }
+
+    // Автоматический перехват при успешном сканировании QR
+    function onScanSuccess(decodedText) {
+        const busCode = extractBusCode(decodedText);
+
+        if (busCode) {
+            if (navigator.vibrate) navigator.vibrate(150);
+
+            html5QrCode.stop().then(() => {
+                currentDigits = busCode; // Код автобуса автоматом записывается в Тулпар
+                document.getElementById('tulpar-digits').innerText = currentDigits;
+                
+                // Переключение экранов
+                document.getElementById('scanner-window').style.display = 'none';
+                document.getElementById('main-interface').style.display = 'flex';
+            }).catch(err => console.error("Ошибка при остановке камеры:", err));
+        }
+    }
+
+    function showChek() {
+        document.getElementById('chek-time').innerText = currentTimeStr;
+        document.getElementById('chek-digits').innerText = currentDigits;
+        document.getElementById('chek-overlay').style.display = 'block';
+    }
+
+    function hideChek() {
+        document.getElementById('chek-overlay').style.display = 'none';
+    }
+
+    function startCamera() {
+        html5QrCode = new Html5Qrcode("reader");
+        const qrboxFunction = function(viewfinderWidth, viewfinderHeight) {
+            return { width: viewfinderWidth, height: viewfinderHeight };
+        }
+
+        Html5Qrcode.getCameras().then(devices => {
+            if (devices && devices.length > 0) {
+                let targetCameraId = null;
+                const mainCamera = devices.find(device => 
+                    device.label.toLowerCase().includes('main') || 
+                    device.label.toLowerCase().includes('back 0')
+                );
+
+                if (mainCamera) { targetCameraId = mainCamera.id; } 
+                else {
+                    const backCameras = devices.filter(device => device.label.toLowerCase().includes('back'));
+                    targetCameraId = backCameras.length > 0 ? backCameras[0].id : devices[0].id;
+                }
+
+                html5QrCode.start(targetCameraId, { fps: 15, qrbox: qrboxFunction }, onScanSuccess)
+                .catch(err => fallbackStart(qrboxFunction));
+            } else {
+                fallbackStart(qrboxFunction);
+            }
+        }).catch(err => fallbackStart(qrboxFunction));
+    }
+
+    function fallbackStart(qrboxFn) {
+        html5QrCode.start({ facingMode: "environment" }, { fps: 15, qrbox: qrboxFn }, onScanSuccess);
+    }
+</script>
+
+</body>
+</html>
