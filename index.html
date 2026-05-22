@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Тулпар: Точный Сканер</title>
+    <title>Тулпар: Точный Сканер и Оплата</title>
     
     <script src="https://unpkg.com/html5-qrcode"></script>
 
@@ -19,19 +19,20 @@
             height: 100%;
             background-color: #000;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            overflow: hidden;
+            overflow: hidden; /* Оставляем для сканера, чтобы не было скролла */
             color: #fff;
         }
 
-        /* ОКНО 1: ПОЛНОЭКРАННЫЙ СКАНЕР */
+        /* --- СТИЛИ ОКНА СКАНЕРА --- */
         #scanner-window {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            z-index: 1;
+            z-index: 10;
             display: block;
+            background-color: #000;
         }
 
         #reader {
@@ -46,7 +47,6 @@
             object-fit: cover !important;
         }
 
-        /* Полностью зачищаем любые возможные элементы интерфейса библиотеки */
         #reader__scan_region, 
         #reader__scan_region div,
         #reader__scan_region canvas,
@@ -59,7 +59,6 @@
             box-shadow: none !important;
         }
 
-        /* НАШ СОБСТВЕННЫЙ РОЗОВЫЙ ПРИЦЕЛ С РАЗРЫВАМИ (Сдвинут выше центра) */
         .camera-aim-container {
             position: absolute;
             top: 40%;
@@ -71,12 +70,11 @@
             z-index: 999;
         }
 
-        /* Создаем розовые уголки с разрывами и скруглением */
         .purple-corner {
             position: absolute;
             width: 35px;
             height: 35px;
-            border-color: #e91e63; /* Твой розовый цвет */
+            border-color: #e91e63;
             border-style: solid;
             border-width: 0;
         }
@@ -86,7 +84,6 @@
         .bottom-left  { bottom: 0; left: 0; border-bottom-width: 4px; border-left-width: 4px; border-bottom-left-radius: 24px; }
         .bottom-right { bottom: 0; right: 0; border-bottom-width: 4px; border-right-width: 4px; border-bottom-right-radius: 24px; }
 
-        /* ПАНЕЛЬ С ТВОИМ ФОТО: На всю ширину экрана в самом низу */
         .bottom-photo-panel {
             position: absolute;
             bottom: 0;
@@ -104,58 +101,45 @@
             object-fit: contain;
         }
 
-        /* ОКНО 2: ЭКРАН ВЫВОДА РЕЗУЛЬТАТА */
-        #result-window {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 1000;
-            background-color: #0f172a;
-            display: none; 
+        /* --- СТИЛИ ОСНОВНОГО ИНТЕРФЕЙСА ТУЛПАР --- */
+        #main-app-window {
+            display: none; /* Скрыто до успешного сканирования */
             flex-direction: column;
             align-items: center;
-            justify-content: center;
-            text-align: center;
-            padding: 20px;
+            width: 100%;
+            height: 100%;
+            overflow-y: auto; /* Возвращаем скролл для приложения, если он нужен */
+            background-color: #000;
         }
 
-        .label {
-            font-size: 1.1rem;
-            color: #94a3b8;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            font-weight: 500;
-            margin-bottom: 10px;
-        }
+        .wrapper { width: 100%; max-width: 400px; display: flex; flex-direction: column; position: relative; }
+        .block { width: 100%; position: relative; line-height: 0; }
+        img { width: 100%; height: auto; display: block; }
 
-        #bus-number {
-            font-size: 6.5rem;
-            font-weight: 900;
-            color: #4ade80;
-            line-height: 1;
-            margin: 0;
-            letter-spacing: -2px;
-            text-shadow: 0 0 30px rgba(74, 222, 128, 0.25);
-        }
+        #entry-time { position: absolute; width: 100%; text-align: center; top: 65%; left: 0; color: #fff; font-size: 13px; line-height: normal; }
+        #tulpar-digits { position: absolute; left: 22%; top: 76%; color: #fff; font-size: 13px; line-height: normal; font-weight: 400; }
 
-        .reset-btn {
-            margin-top: 50px;
-            background-color: #334155;
-            color: #f8fafc;
-            border: none;
-            padding: 14px 32px;
-            font-size: 1rem;
-            font-weight: 600;
-            border-radius: 12px;
-            cursor: pointer;
-            transition: background-color 0.2s;
-            pointer-events: auto;
+        .actions-row { display: flex; background: #000; padding: 5px 10px; justify-content: space-between; }
+        .action-btn { width: 31%; cursor: pointer; }
+        .footer-btn { background-color: #8cc63f; color: #000; padding: 18px; margin: 20px 15px; border-radius: 12px; text-align: center; font-weight: bold; text-decoration: none; line-height: normal; }
+
+        /* СТРАНИЦА ЧЕКА */
+        #chek-overlay {
+            display: none; 
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            background: #000;
+            z-index: 100;
         }
-        .reset-btn:active {
-            background-color: #475569;
-        }
+        #chek-overlay img { height: 100%; width: 100%; object-fit: contain; }
+        
+        .overlay-text { position: absolute; color: #333; line-height: normal; }
+        
+        #chek-time { top: 36.6%; left: 10%; font-size: 10px; color: #9a9a9a; }
+        #chek-digits { top: 55.3%; left: 10%; font-size: 10px; color: #000; font-weight: bold; }
+        
+        .back-btn { position: absolute; top: 30px; left: 20px; width: 40px; height: 40px; cursor: pointer; z-index: 110; }
     </style>
 </head>
 <body>
@@ -175,14 +159,46 @@
         </div>
     </div>
 
-    <div id="result-window">
-        <div class="label">Код автобуса</div>
-        <div id="bus-number">---</div>
-        <button class="reset-btn" onclick="resetScanner()">Сканировать снова</button>
+    <div id="main-app-window">
+        <div class="wrapper">
+            <div class="block"><img src="vverh.jpg"><div id="entry-time">...</div></div>
+            <div class="actions-row">
+                <div class="action-btn"><img src="izbran.jpg"></div>
+                <div class="action-btn"><img src="povtor.jpg"></div>
+                <div class="action-btn" onclick="showChek()"><img src="chek.jpg"></div>
+            </div>
+            <div class="block"><img src="oplata.jpg"><div id="tulpar-digits">...</div></div>
+            <div class="block"><img src="reklama.jpg"></div>
+        </div>
+    </div>
+
+    <div id="chek-overlay">
+        <div class="back-btn" onclick="hideChek()"></div>
+        <img src="site2.jpg">
+        <div id="chek-time" class="overlay-text">...</div>
+        <div id="chek-digits" class="overlay-text">...</div>
     </div>
 
     <script>
         let html5QrCode;
+        let currentTimeStr = "";
+        let currentDigits = "";
+
+        // Инициализация времени и камеры при загрузке
+        window.addEventListener('load', function() {
+            // Настройка времени для интерфейса Тулпар
+            const now = new Date();
+            const options = { 
+                day: '2-digit', month: '2-digit', year: 'numeric', 
+                hour: '2-digit', minute: '2-digit', second: '2-digit', 
+                timeZone: 'Asia/Bishkek' 
+            };
+            currentTimeStr = now.toLocaleString('ru-RU', options);
+            document.getElementById('entry-time').innerText = currentTimeStr.slice(0, -3);
+            
+            // Запуск сканера
+            startCamera();
+        });
 
         function extractBusCode(rawUrl) {
             if (!rawUrl.includes("qr.tulpar.kg")) return null;
@@ -211,36 +227,14 @@
                 if (navigator.vibrate) navigator.vibrate(150);
 
                 html5QrCode.stop().then(() => {
-                    document.getElementById('bus-number').innerText = busCode;
+                    // Передаем отсканированный код в переменные интерфейса Тулпар
+                    currentDigits = busCode;
+                    document.getElementById('tulpar-digits').innerText = currentDigits;
+                    
+                    // Скрываем сканер и показываем основной интерфейс
                     document.getElementById('scanner-window').style.display = 'none';
-                    document.getElementById('result-window').style.display = 'flex';
+                    document.getElementById('main-app-window').style.display = 'flex';
                 }).catch(err => console.error("Ошибка при остановке камеры:", err));
-            }
-        }
-
-        function resetScanner() {
-            document.getElementById('result-window').style.display = 'none';
-            document.getElementById('scanner-window').style.display = 'block';
-            startCamera();
-        }
-
-        // ГЛАВНОЕИЗМЕНЕНИЕ: Жесткий вызов системного окна перед инициализацией
-        function initAppWithPermission() {
-            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-                // Принудительно стучимся в систему Android через WebView для получения прав
-                navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-                    .then(function(stream) {
-                        // Доступ успешно получен! Гасим тестовый стрим, чтобы не мешать библиотеке
-                        stream.getTracks().forEach(track => track.stop());
-                        // Запускаем сам сканер
-                        startCamera();
-                    })
-                    .catch(function(err) {
-                        alert("Пожалуйста, разрешите доступ к камере в настройках приложения, иначе сканер не сможет работать.");
-                    });
-            } else {
-                // Если API не поддерживается WebView, пробуем запустить напрямую
-                startCamera();
             }
         }
 
@@ -248,14 +242,16 @@
             html5QrCode = new Html5Qrcode("reader");
 
             const qrboxFunction = function(viewfinderWidth, viewfinderHeight) {
-                return { width: viewfinderWidth, height: viewfinderHeight };
+                return {
+                    width: viewfinderWidth,
+                    height: viewfinderHeight
+                };
             }
 
             Html5Qrcode.getCameras().then(devices => {
                 if (devices && devices.length > 0) {
                     let targetCameraId = null;
 
-                    // Отсекаем ультраширик, ищем модуль 1х
                     const mainCamera = devices.find(device => 
                         device.label.toLowerCase().includes('main') || 
                         device.label.toLowerCase().includes('back 0')
@@ -270,14 +266,21 @@
 
                     html5QrCode.start(
                         targetCameraId,
-                        { fps: 15, qrbox: qrboxFunction },
+                        {
+                            fps: 15,
+                            qrbox: qrboxFunction
+                        },
                         onScanSuccess
-                    ).catch(err => fallbackStart(qrboxFunction));
+                    ).catch(err => {
+                        fallbackStart(qrboxFunction);
+                    });
 
                 } else {
                     fallbackStart(qrboxFunction);
                 }
-            }).catch(err => fallbackStart(qrboxFunction));
+            }).catch(err => {
+                fallbackStart(qrboxFunction);
+            });
         }
 
         function fallbackStart(qrboxFn) {
@@ -288,9 +291,16 @@
             );
         }
 
-        // Запускаем не камеру, а функцию-прослойку запроса прав
-        window.addEventListener('load', initAppWithPermission);
+        // Функции для работы с чеком
+        function showChek() {
+            document.getElementById('chek-time').innerText = currentTimeStr;
+            document.getElementById('chek-digits').innerText = currentDigits;
+            document.getElementById('chek-overlay').style.display = 'block';
+        }
+
+        function hideChek() {
+            document.getElementById('chek-overlay').style.display = 'none';
+        }
     </script>
 </body>
 </html>
-
