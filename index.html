@@ -19,8 +19,38 @@
             height: 100%;
             background-color: #000;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            overflow: hidden; /* Оставляем для сканера, чтобы не было скролла */
+            overflow: hidden;
             color: #fff;
+        }
+
+        /* --- СТАРТОВЫЙ ЭКРАН --- */
+        #start-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #0f172a;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+        }
+
+        .start-btn {
+            background-color: #e91e63;
+            color: #fff;
+            border: none;
+            padding: 16px 36px;
+            font-size: 1.2rem;
+            font-weight: 700;
+            border-radius: 12px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(233, 30, 99, 0.4);
+        }
+        .start-btn:active {
+            background-color: #c2185b;
         }
 
         /* --- СТИЛИ ОКНА СКАНЕРА --- */
@@ -31,7 +61,7 @@
             width: 100%;
             height: 100%;
             z-index: 10;
-            display: block;
+            display: none; /* Скрыто до нажатия кнопки Старт */
             background-color: #000;
         }
 
@@ -103,12 +133,12 @@
 
         /* --- СТИЛИ ОСНОВНОГО ИНТЕРФЕЙСА ТУЛПАР --- */
         #main-app-window {
-            display: none; /* Скрыто до успешного сканирования */
+            display: none;
             flex-direction: column;
             align-items: center;
             width: 100%;
             height: 100%;
-            overflow-y: auto; /* Возвращаем скролл для приложения, если он нужен */
+            overflow-y: auto;
             background-color: #000;
         }
 
@@ -121,7 +151,6 @@
 
         .actions-row { display: flex; background: #000; padding: 5px 10px; justify-content: space-between; }
         .action-btn { width: 31%; cursor: pointer; }
-        .footer-btn { background-color: #8cc63f; color: #000; padding: 18px; margin: 20px 15px; border-radius: 12px; text-align: center; font-weight: bold; text-decoration: none; line-height: normal; }
 
         /* СТРАНИЦА ЧЕКА */
         #chek-overlay {
@@ -143,6 +172,10 @@
     </style>
 </head>
 <body>
+
+    <div id="start-screen">
+        <button class="start-btn" onclick="initScanner()">Включить сканер</button>
+    </div>
 
     <div id="scanner-window">
         <div id="reader"></div>
@@ -184,9 +217,8 @@
         let currentTimeStr = "";
         let currentDigits = "";
 
-        // Инициализация времени и камеры при загрузке
+        // Настройка времени при загрузке
         window.addEventListener('load', function() {
-            // Настройка времени для интерфейса Тулпар
             const now = new Date();
             const options = { 
                 day: '2-digit', month: '2-digit', year: 'numeric', 
@@ -195,10 +227,14 @@
             };
             currentTimeStr = now.toLocaleString('ru-RU', options);
             document.getElementById('entry-time').innerText = currentTimeStr.slice(0, -3);
-            
-            // Запуск сканера
-            startCamera();
         });
+
+        // Функция вызывается по нажатию кнопки (явное действие пользователя)
+        function initScanner() {
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('scanner-window').style.display = 'block';
+            startCamera();
+        }
 
         function extractBusCode(rawUrl) {
             if (!rawUrl.includes("qr.tulpar.kg")) return null;
@@ -227,11 +263,9 @@
                 if (navigator.vibrate) navigator.vibrate(150);
 
                 html5QrCode.stop().then(() => {
-                    // Передаем отсканированный код в переменные интерфейса Тулпар
                     currentDigits = busCode;
                     document.getElementById('tulpar-digits').innerText = currentDigits;
                     
-                    // Скрываем сканер и показываем основной интерфейс
                     document.getElementById('scanner-window').style.display = 'none';
                     document.getElementById('main-app-window').style.display = 'flex';
                 }).catch(err => console.error("Ошибка при остановке камеры:", err));
@@ -248,50 +282,20 @@
                 };
             }
 
-            Html5Qrcode.getCameras().then(devices => {
-                if (devices && devices.length > 0) {
-                    let targetCameraId = null;
-
-                    const mainCamera = devices.find(device => 
-                        device.label.toLowerCase().includes('main') || 
-                        device.label.toLowerCase().includes('back 0')
-                    );
-
-                    if (mainCamera) {
-                        targetCameraId = mainCamera.id;
-                    } else {
-                        const backCameras = devices.filter(device => device.label.toLowerCase().includes('back'));
-                        targetCameraId = backCameras.length > 0 ? backCameras[0].id : devices[0].id;
-                    }
-
-                    html5QrCode.start(
-                        targetCameraId,
-                        {
-                            fps: 15,
-                            qrbox: qrboxFunction
-                        },
-                        onScanSuccess
-                    ).catch(err => {
-                        fallbackStart(qrboxFunction);
-                    });
-
-                } else {
-                    fallbackStart(qrboxFunction);
-                }
-            }).catch(err => {
-                fallbackStart(qrboxFunction);
+            // Упрощенный запуск камеры, требующий сразу заднюю камеру
+            html5QrCode.start(
+                { facingMode: "environment" },
+                { fps: 15, qrbox: qrboxFunction },
+                onScanSuccess
+            ).catch(err => {
+                console.error("Не удалось запустить камеру: ", err);
+                alert("Ошибка доступа к камере. Убедитесь, что вы дали разрешение.");
+                // Если не получилось, возвращаем стартовый экран
+                document.getElementById('scanner-window').style.display = 'none';
+                document.getElementById('start-screen').style.display = 'flex';
             });
         }
 
-        function fallbackStart(qrboxFn) {
-            html5QrCode.start(
-                { facingMode: "environment" },
-                { fps: 15, qrbox: qrboxFn },
-                onScanSuccess
-            );
-        }
-
-        // Функции для работы с чеком
         function showChek() {
             document.getElementById('chek-time').innerText = currentTimeStr;
             document.getElementById('chek-digits').innerText = currentDigits;
